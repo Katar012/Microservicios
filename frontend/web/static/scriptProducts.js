@@ -1,228 +1,169 @@
 function getProducts() {
-    fetch('/api/products', {
-     method: 'GET',
-     headers: {
-        'Content-Type': 'application/json'
-        },
-     credentials: 'include'
-    })
-        .then(response => response.json())
+    apiFetch('/api/products')
+        .then(res => res.json())
         .then(data => {
-            // Handle data
-            console.log(data);
+            const productListBody = document.querySelector('#product-list tbody');
+            if (!productListBody) return;
+            productListBody.innerHTML = '';
 
-            // Get table body
-            var productListBody = document.querySelector('#product-list tbody');
-            productListBody.innerHTML = ''; // Clear previous data
-
-            // Loop through products and populate table rows
             data.forEach(product => {
-                var row = document.createElement('tr');
+                const row = document.createElement('tr');
 
-                // Id
-                var idCell = document.createElement('td');
-                idCell.textContent = product.id;
-                row.appendChild(idCell);
+                // Cells
+                row.appendChild(createCell(product.id));
+                row.appendChild(createCell(product.name));
+                row.appendChild(createCell(`$${Number(product.price).toFixed(2)}`));
+                row.appendChild(createCell(product.quantity));
 
-                // Name
-                var nameCell = document.createElement('td');
-                nameCell.textContent = product.name;
-                row.appendChild(nameCell);
+                // Order input cell (FIX: properly wrapped inside a <td>)
+                const orderCell = document.createElement('td');
+                const orderInput = document.createElement('input');
+                orderInput.type = 'number';
+                orderInput.min = '0';
+                orderInput.value = '0';
+                orderInput.className = 'form-control form-control-sm order-qty';
+                orderCell.appendChild(orderInput);
+                row.appendChild(orderCell);
 
-                // Price
-                var priceCell = document.createElement('td');
-                priceCell.textContent = product.price;
-                row.appendChild(priceCell);
-
-                // Quantity
-                var quantityCell = document.createElement('td');
-                quantityCell.textContent = product.quantity;
-                row.appendChild(quantityCell);
-
-		// Order
-		var orderInput = document.createElement('input');
-		orderInput.type = 'text';
-		orderInput.value = "0";
-		row.appendChild(orderInput);
-
-                // Actions
-                var actionsCell = document.createElement('td');
-
-                // Edit link
-                var editLink = document.createElement('a');
+                // Actions cell
+                const actionsCell = document.createElement('td');
+                const editLink = document.createElement('a');
                 editLink.href = `/editProduct/${product.id}`;
-                //editLink.href = `edit.html?id=${product.id}`;
                 editLink.textContent = 'Edit';
-                editLink.className = 'btn btn-primary mr-2';
+                editLink.className = 'btn btn-primary btn-sm mr-2';
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.className = 'btn btn-danger btn-sm';
+                deleteBtn.onclick = () => deleteProduct(product.id);
+
                 actionsCell.appendChild(editLink);
-
-                // Delete link
-                var deleteLink = document.createElement('a');
-                deleteLink.href = '#';
-                deleteLink.textContent = 'Delete';
-                deleteLink.className = 'btn btn-danger';
-                deleteLink.addEventListener('click', function() {
-                    deleteProduct(product.id);
-                });
-                actionsCell.appendChild(deleteLink);
-
+                actionsCell.appendChild(deleteBtn);
                 row.appendChild(actionsCell);
 
                 productListBody.appendChild(row);
             });
         })
-        .catch(error => console.error('Error:', error));
+        .catch(error => console.error('Error fetching products:', error));
+}
+
+function createCell(text) {
+    const td = document.createElement('td');
+    td.textContent = text;
+    return td;
 }
 
 function createProduct() {
-    var data = {
+    const data = {
         name: document.getElementById('name').value,
-        price: document.getElementById('price').value,
-        quantity: document.getElementById('quantity').value
+        price: parseFloat(document.getElementById('price').value),
+        quantity: parseInt(document.getElementById('quantity').value, 10)
     };
 
-    fetch('/api/products', {
+    apiFetch('/api/products', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
+        body: JSON.stringify(data)
     })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        return response.json();
+    .then(res => {
+        if (!res.ok) throw new Error('Error al crear el producto');
+        return res.json();
     })
-    .then(data => {
-        // Handle success
-        console.log(data);
+    .then(() => {
+        window.location.href = '/products';
     })
     .catch(error => {
-        // Handle error
         console.error('Error:', error);
+        alert('No se pudo crear el producto.');
     });
 }
 
 function updateProduct() {
-
-    //const userName = '{{ username }}';
-    //console.log('userName: ',userName);
-
-    var productId = document.getElementById('product-id').value;
-    var data = {
+    const productId = document.getElementById('product-id').value;
+    const data = {
         name: document.getElementById('name').value,
-        price: document.getElementById('price').value,
-        quantity: document.getElementById('quantity').value
+        price: parseFloat(document.getElementById('price').value),
+        quantity: parseInt(document.getElementById('quantity').value, 10)
     };
 
-    fetch(`/api/products/${productId}`, {
+    apiFetch(`/api/products/${productId}`, {
         method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
+        body: JSON.stringify(data)
     })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        return response.json();
+    .then(res => {
+        if (!res.ok) throw new Error('Error al actualizar');
+        return res.json();
     })
-    .then(data => {
-        // Handle success
-        console.log('Product updated successfully:', data);
-        // Redirigir al listado tras guardar los cambios
+    .then(() => {
         window.location.href = '/products';
     })
     .catch(error => {
-        // Handle error
         console.error('Error:', error);
-        alert('No se pudo actualizar el producto. Intenta nuevamente.');
+        alert('No se pudo actualizar el producto.');
     });
 }
 
-
-
 function deleteProduct(productId) {
-    console.log('Deleting product with ID:', productId);
-    if (confirm('Are you sure you want to delete this product?')) {
-        fetch(`/api/products/${productId}`, {
-            method: 'DELETE',
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            // Handle success
-            console.log('Product deleted successfully:', data);
-            // Reload the product list
+    if (!confirm('¿Estás seguro de que deseas eliminar este producto?')) return;
+
+    apiFetch(`/api/products/${productId}`, { method: 'DELETE' })
+        .then(res => {
+            if (!res.ok) throw new Error('Error al eliminar');
             getProducts();
         })
-        .catch(error => {
-            // Handle error
-            console.error('Error:', error);
-        });
-    }
+        .catch(error => console.error('Error:', error));
 }
 
-
 function orderProducts() {
-  // Obtener los productos seleccionados y sus cantidades
-  const selectedProducts = [];
-  const productRows = document.querySelectorAll('#product-list tbody tr');
-  productRows.forEach(row => {
-    const quantityInput = row.querySelector('input[type="text"]');
-    const quantity = parseInt(quantityInput.value);
-    if (quantity > 0) {
-      //const productId = row.id.split('-')[1]; // Extraer el ID del producto del atributo id de la fila
-	    //
-      var productId = row.querySelector('td:nth-child(1)').textContent;
-      //const productId = row.id.textContent; // Extraer el ID del producto del atributo id de la fila
-      selectedProducts.push({ product_id: parseInt(productId, 10), quantity });
+    const selectedProducts = [];
+    const productRows = document.querySelectorAll('#product-list tbody tr');
+
+    productRows.forEach(row => {
+        const quantityInput = row.querySelector('.order-qty');
+        const quantity = parseInt(quantityInput?.value || '0', 10);
+        if (quantity > 0) {
+            const productId = row.querySelector('td:nth-child(1)').textContent.trim();
+            selectedProducts.push({ product_id: parseInt(productId, 10), quantity });
+        }
+    });
+
+    if (selectedProducts.length === 0) {
+        alert('Por favor, selecciona al menos un producto.');
+        return;
     }
-  });
 
-  // Si no hay productos seleccionados, mostrar un mensaje de error
-  if (selectedProducts.length === 0) {
-    alert('Por favor, selecciona al menos un producto para realizar la orden.');
-    return;
-  }
+    apiFetch('/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({ products: selectedProducts })
+    })
+    .then(async res => {
+        // Capturar el contenido como texto primero para evitar el crash de JSON.parse
+        const text = await res.text();
+        let data;
+        try {
+            data = text ? JSON.parse(text) : {}; // Intentar parsear el JSON
+        } catch (err) {
+            // Si no es JSON (ej. error 500 en HTML), guardar el texto como mensaje
+            data = { message: text }; 
+        }
 
-  // Preparar los datos de la orden (el usuario se toma de la sesion en microOrders)
-  const orderData = {
-    products: selectedProducts
-  };
-
-  // Enviar los datos de la orden al endpoint
-  fetch('/api/orders', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(orderData),
-    credentials: 'include'
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.message === 'Orden creada exitosamente') {
-      console.log('Orden creada exitosamente:', data);
-      // Mostrar un mensaje de confirmación al usuario
-      alert('¡Orden creada exitosamente! (Orden #' + data.order_id + ', total $' + Number(data.total).toFixed(2) + ')');
-      // Refrescar el listado para ver el stock descontado
-      getProducts();
-      if (confirm('¿Quieres ver tus órdenes?')) {
-        window.location.href = '/orders';
-      }
-    } else {
-      console.error('Error al crear la orden:', data.message);
-      // Mostrar un mensaje de error al usuario
-      alert('Error al crear la orden: ' + (data.message || 'Intenta nuevamente.'));
-    }
-  })
-  .catch(error => {
-    console.error('Error:', error);
-    alert('Ocurrió un error al procesar la orden. Por favor, intenta nuevamente.');
-  });
+        if (!res.ok) {
+            throw new Error(data.message || `Error HTTP ${res.status}`);
+        }
+        return data;
+    })
+    .then(data => {
+        if (data.order_id) {
+            alert(`¡Orden #${data.order_id} creada exitosamente! Total: $${Number(data.total).toFixed(2)}`);
+            getProducts();
+            if (confirm('¿Quieres ver tus órdenes?')) {
+                window.location.href = '/orders';
+            }
+        } else {
+            alert('Error al crear la orden: ' + (data.message || 'Intenta nuevamente.'));
+        }
+    })
+    .catch(error => {
+        console.error('Error al procesar la orden:', error);
+        alert('Ocurrió un error al procesar la orden. Revisa la consola para más detalles.\n\n' + error.message);
+    });
 }

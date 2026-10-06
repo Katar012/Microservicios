@@ -11,15 +11,6 @@ import requests
 
 order_controller = Blueprint('order_controller', __name__)
 
-# Configuración de Consul
-CONSUL_HOST = os.getenv('CONSUL_HOST', 'consul')
-CONSUL_PORT = os.getenv('CONSUL_PORT', '8500')
-SERVICE_NAME = os.getenv('SERVICE_NAME', 'orders')
-SERVICE_HOST = os.getenv('SERVICE_HOST', 'microorders')
-SERVICE_PORT = int(os.getenv('SERVICE_PORT', '5004'))
-SERVICE_ID = f"{SERVICE_NAME}-{SERVICE_PORT}"
-
-
 @order_controller.route('/health', methods=['GET'])
 def health():
     return jsonify({
@@ -28,60 +19,6 @@ def health():
         'host': SERVICE_HOST,
         'port': SERVICE_PORT
     }), 200
-
-
-def register_in_consul():
-    url = f"http://{CONSUL_HOST}:{CONSUL_PORT}/v1/agent/service/register"
-    payload = {
-        "ID": SERVICE_ID,
-        "Name": SERVICE_NAME,
-        "Address": SERVICE_HOST,
-        "Port": SERVICE_PORT,
-        "Check": {
-            "HTTP": f"http://{SERVICE_HOST}:{SERVICE_PORT}/health",
-            "Interval": "10s",
-            "Timeout": "3s",
-            "DeregisterCriticalServiceAfter": "24h"
-        }
-    }
-    time.sleep(2)
-    registered_once = False
-    while True:
-        try:
-            resp = requests.put(url, json=payload, timeout=3)
-            if resp.status_code == 200 and not registered_once:
-                print(f"[Consul] Microservicio '{SERVICE_NAME}' registrado exitosamente en Consul ({SERVICE_HOST}:{SERVICE_PORT})")
-                registered_once = True
-        except Exception:
-            pass
-        time.sleep(20)
-
-
-threading.Thread(target=register_in_consul, daemon=True).start()
-
-
-
-def products_service_url():
-    """Descubre dinámicamente el servicio de productos a través de Consul."""
-    try:
-        consul_url = f"http://{CONSUL_HOST}:{CONSUL_PORT}/v1/health/service/products?passing"
-        resp = requests.get(consul_url, timeout=3)
-        if resp.status_code == 200:
-            services = resp.json()
-            if services:
-                entry = services[0]['Service']
-                address = entry.get('Address')
-                port = entry.get('Port')
-                discovered_url = f"http://{address}:{port}"
-                print(f"[Consul Discovery] Servicio 'products' descubierto en {discovered_url}")
-                return discovered_url
-            else:
-                print("[Consul Discovery] Advertencia: No hay instancias de 'products' saludables en Consul.")
-    except Exception as e:
-        print(f"[Consul Discovery] Error consultando Consul: {e}")
-
-    return None
-
 
 def restore_stock(applied):
     base = products_service_url()

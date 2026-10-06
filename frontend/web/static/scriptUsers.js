@@ -1,198 +1,144 @@
+function createCell(text) {
+    const td = document.createElement('td');
+    td.textContent = text || '';
+    return td;
+}
+
 function getUsers() {
-    fetch('/api/users', {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    credentials: 'include'
-    })
-        .then(response => response.json())
+    apiFetch('/api/users')
+        .then(res => res.json())
         .then(data => {
-            // Handle data
-            console.log(data);
+            const userListBody = document.querySelector('#user-list tbody');
+            if (!userListBody) return;
+            userListBody.innerHTML = '';
 
-            // Get table body
-            var userListBody = document.querySelector('#user-list tbody');
-            userListBody.innerHTML = ''; // Clear previous data
-
-            // Loop through users and populate table rows
             data.forEach(user => {
-                var row = document.createElement('tr');
+                const row = document.createElement('tr');
+                row.appendChild(createCell(user.name));
+                row.appendChild(createCell(user.email));
+                row.appendChild(createCell(user.username));
 
-                // Name
-                var nameCell = document.createElement('td');
-                nameCell.textContent = user.name;
-                row.appendChild(nameCell);
+                const actionsCell = document.createElement('td');
 
-                // Email
-                var emailCell = document.createElement('td');
-                emailCell.textContent = user.email;
-                row.appendChild(emailCell);
-
-                // Username
-                var usernameCell = document.createElement('td');
-                usernameCell.textContent = user.username;
-                row.appendChild(usernameCell);
-
-                // Actions
-                var actionsCell = document.createElement('td');
-
-                // Edit link
-                var editLink = document.createElement('a');
+                const editLink = document.createElement('a');
                 editLink.href = `/editUser/${user.id}`;
-	        //editLink.href = `edit.html?id=${user.id}`;
                 editLink.textContent = 'Edit';
-                editLink.className = 'btn btn-primary mr-2';
+                editLink.className = 'btn btn-primary btn-sm mr-2';
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.className = 'btn btn-danger btn-sm';
+                deleteBtn.onclick = () => deleteUser(user.id);
+
                 actionsCell.appendChild(editLink);
-
-                // Delete link
-                var deleteLink = document.createElement('a');
-                deleteLink.href = '#';
-                deleteLink.textContent = 'Delete';
-                deleteLink.className = 'btn btn-danger';
-                deleteLink.addEventListener('click', function() {
-                    deleteUser(user.id);
-                });
-                actionsCell.appendChild(deleteLink);
-
+                actionsCell.appendChild(deleteBtn);
                 row.appendChild(actionsCell);
 
                 userListBody.appendChild(row);
             });
         })
-        .catch(error => console.error('Error:', error));
+        .catch(error => console.error('Error fetching users:', error));
 }
 
 function createUser() {
-    var data = {
+    const data = {
         name: document.getElementById('name').value,
         email: document.getElementById('email').value,
         username: document.getElementById('username').value,
         password: document.getElementById('password').value
     };
 
-    fetch('/api/users', {
+    apiFetch('/api/users', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
+        body: JSON.stringify(data)
     })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        return response.json();
-    })
-    .then(data => {
-        // Handle success
-        console.log(data);
+    .then(res => {
+        if (!res.ok) throw new Error('Error al crear el usuario');
+        window.location.href = '/users';
     })
     .catch(error => {
-        // Handle error
         console.error('Error:', error);
+        alert('No se pudo crear el usuario.');
     });
 }
 
 function updateUser() {
-    var userId = document.getElementById('user-id').value;
-    var data = {
+    const userId = document.getElementById('user-id').value;
+    const data = {
         name: document.getElementById('name').value,
         email: document.getElementById('email').value,
         username: document.getElementById('username').value
     };
-    // Solo se envia la contrasena si el usuario escribio una nueva
-    var password = document.getElementById('password').value;
-    if (password) {
-        data.password = password;
-    }
 
-    fetch(`/api/users/${userId}`, {
+    const password = document.getElementById('password').value;
+    if (password) data.password = password;
+
+    apiFetch(`/api/users/${userId}`, {
         method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
+        body: JSON.stringify(data)
     })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        return response.json();
-    })
-    .then(data => {
-        // Handle success
-        console.log('User updated successfully:', data);
-        // Redirigir al listado tras guardar los cambios
+    .then(res => {
+        if (!res.ok) throw new Error('Error al actualizar usuario');
         window.location.href = '/users';
     })
     .catch(error => {
-        // Handle error
         console.error('Error:', error);
-        alert('No se pudo actualizar el usuario. Intenta nuevamente.');
+        alert('No se pudo actualizar el usuario.');
     });
 }
 
-
 function deleteUser(userId) {
-    console.log('Deleting user with ID:', userId);
-    if (confirm('Are you sure you want to delete this user?')) {
-        fetch(`/api/users/${userId}`, {
-            method: 'DELETE',
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            // Handle success
-            console.log('User deleted successfully:', data);
-            // Reload the user list
+    if (!confirm('¿Estás seguro de que deseas eliminar este usuario?')) return;
+
+    apiFetch(`/api/users/${userId}`, { method: 'DELETE' })
+        .then(res => {
+            if (!res.ok) throw new Error('Error al eliminar');
             getUsers();
         })
-        .catch(error => {
-            // Handle error
-            console.error('Error:', error);
-        });
-    }
+        .catch(error => console.error('Error:', error));
 }
-
 
 function handleLogin(event) {
-  //event.preventDefault();
-
-  const username = document.getElementById('username').value;
-  const password = document.getElementById('password').value;
-
-  fetch('/api/login', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ username, password }),
-    credentials: 'include'
-  })
-  .then(response => {
-    if (!response.ok) {
-      throw new Error('Invalid credentials');
+    if (event) {
+        event.preventDefault();
     }
-    return response.json();
-  })
-  .then(data=> {
-    // Store the token in local storage
-    localStorage.setItem('token', data.token);
 
-    // Redirect to the desired page after successful login
-    window.location.href = '/dashboard'; // Replace with your desired redirect URL
-  })
-  .catch(error => {
-    console.error('Login error:', error);
-    // Display an error message to the user
-    alert('Invalid credentials');
-  });
+    const usernameEl = document.getElementById('username');
+    const passwordEl = document.getElementById('password');
+
+    if (!usernameEl || !passwordEl) {
+        console.error('Error: "username" or "password" input fields not found in DOM.');
+        alert('Error en el formulario. Revisa la consola.');
+        return;
+    }
+
+    const username = usernameEl.value.trim();
+    const password = passwordEl.value.trim();
+
+    if (!username || !password) {
+        alert('Por favor, ingresa tu usuario y contraseña.');
+        return;
+    }
+
+    apiFetch('/api/login', {
+        method: 'POST',
+        body: JSON.stringify({ username, password })
+    })
+    .then(async res => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.message || `Error ${res.status}: Credenciales inválidas`);
+        }
+        return data;
+    })
+    .then(data => {
+        if (data.token) {
+            localStorage.setItem('token', data.token);
+        }
+        window.location.href = '/dashboard';
+    })
+    .catch(error => {
+        console.error('Login error details:', error);
+        alert(error.message || 'Error de conexión con el servidor.');
+    });
 }
-
-//const loginForm = document.getElementById('login-form');
-//loginForm.addEventListener('submit', handleLogin);

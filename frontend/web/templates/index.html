@@ -21,12 +21,11 @@
   <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
     <span class="navbar-toggler-icon"></span>
   </button>
-
 </nav>
 
 <div class="container mt-5">
   <h2>Login</h2>
-  <form id="login-form">
+  <form id="login-form" onsubmit="handleLogin(event)">
     <div class="form-group">
       <label for="username">Username</label>
       <input type="text" class="form-control" id="username" required>
@@ -35,10 +34,14 @@
       <label for="password">Password</label>
       <input type="password" class="form-control" id="password" required>
     </div>
-    <button type="button" onclick="handleLogin()">Login</button>
+    <button type="submit" class="btn btn-primary">Login</button>
   </form>
 </div>
 
+<!-- 1. Shared fetch wrapper loaded FIRST -->
+<script src="static/scriptCommon.js"></script>
+<!-- 2. Feature handlers loaded SECOND -->
 <script src="static/scriptUsers.js"></script>
+
 </body>
 </html>

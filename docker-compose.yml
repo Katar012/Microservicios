@@ -1,14 +1,8 @@
-# ============================================================
-#  microWebApp - Orquestacion con Docker Compose (Parte 2)
-#  Un MySQL independiente por microservicio + red interna.
-#  Levantar: cp .env.example .env && docker compose up --build -d
-# ============================================================
-
 name: microwebapp
 
 services:
 
-  # ----------------------- Bases de datos -----------------------
+  # ----------------------- Databases -----------------------
   users_db:
     image: mysql:8.0
     container_name: users_db
@@ -72,85 +66,56 @@ services:
     networks:
       - app_network
 
-  # ----------------------- Descubrimiento (Consul) -----------------------
-  consul:
-    image: hashicorp/consul:1.16
-    container_name: consul
-    command: agent -dev -client=0.0.0.0
-    ports:
-      - "${CONSUL_PORT:-8500}:8500"
-    networks:
-      - app_network
-
-  # ----------------------- Microservicios -----------------------
+  # ----------------------- Microservices -----------------------
   microusers:
     build: ./microUsers
     container_name: microusers
+    ports:
+      - "3001:5002" # Published port so HAProxy on 192.168.100.2 can reach it at 192.168.100.3:3001
     environment:
       MYSQL_HOST: users_db
       MYSQL_USER: ${DB_USER:-app}
       MYSQL_PASSWORD: ${DB_PASSWORD:-app_password}
       MYSQL_DB: users_db
-      CONSUL_HOST: consul
-      CONSUL_PORT: 8500
-      SERVICE_NAME: users
-      SERVICE_HOST: microusers
-      SERVICE_PORT: 5002
     depends_on:
       users_db:
         condition: service_healthy
-      consul:
-        condition: service_started
     networks:
       - app_network
-    # Sin puertos publicados: solo accesible por la red interna
 
   microproducts:
     build: ./microProducts
     container_name: microproducts
+    ports:
+      - "3002:5003" # Published port so HAProxy can reach it at 192.168.100.3:3002
     environment:
       MYSQL_HOST: products_db
       MYSQL_USER: ${DB_USER:-app}
       MYSQL_PASSWORD: ${DB_PASSWORD:-app_password}
       MYSQL_DB: products_db
-      CONSUL_HOST: consul
-      CONSUL_PORT: 8500
-      SERVICE_NAME: products
-      SERVICE_HOST: microproducts
-      SERVICE_PORT: 5003
     depends_on:
       products_db:
         condition: service_healthy
-      consul:
-        condition: service_started
     networks:
       - app_network
-    # Sin puertos publicados
 
   microorders:
     build: ./microOrders
     container_name: microorders
+    ports:
+      - "3003:5004" # Published port so HAProxy can reach it at 192.168.100.3:3003
     environment:
       MYSQL_HOST: orders_db
       MYSQL_USER: ${DB_USER:-app}
       MYSQL_PASSWORD: ${DB_PASSWORD:-app_password}
       MYSQL_DB: orders_db
-      CONSUL_HOST: consul
-      CONSUL_PORT: 8500
-      SERVICE_NAME: orders
-      SERVICE_HOST: microorders
-      SERVICE_PORT: 5004
       SECRET_KEY: ${SECRET_KEY:-secret123}
-      # URL fallback opcional en caso de no conectar a Consul
-      #PRODUCTS_SERVICE_URL: http://microproducts:5003
+      PRODUCTS_SERVICE_URL: http://microproducts:5003
     depends_on:
       orders_db:
         condition: service_healthy
-      consul:
-        condition: service_started
     networks:
       - app_network
-    # Sin puertos publicados
 
   # --------------------------- Frontend ---------------------------
   frontend:
@@ -159,21 +124,14 @@ services:
     ports:
       - "${FRONTEND_PORT:-8080}:5001"
     environment:
-      # URLs usadas por el proxy del frontend (servidor a servidor, red interna)
       USERS_SERVICE_URL: http://microusers:5002
       PRODUCTS_SERVICE_URL: http://microproducts:5003
       ORDERS_SERVICE_URL: http://microorders:5004
-      CONSUL_HOST: consul
-      CONSUL_PORT: 8500
-      SERVICE_NAME: frontend
-      SERVICE_HOST: frontend
-      SERVICE_PORT: 5001
       SECRET_KEY: ${SECRET_KEY:-secret123}
     depends_on:
       - microusers
       - microproducts
       - microorders
-      - consul
     networks:
       - app_network
 
